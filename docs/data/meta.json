@@ -1,5 +1,5 @@
 {
-  "genere": "2026-11-18T07:41:39Z",
+  "genere": "2026-11-18T09:24:13Z",
   "sources": {
     "fontaines": {
       "date": "2026-11-18",
@@ -13,9 +13,9 @@
     },
     "osm": {
       "date": "2026-11-18",
-      "points": 525,
-      "avant_dedoublonnage": 1391
+      "points": 533,
+      "avant_dedoublonnage": 1399
     }
   },
-  "total": 3342
+  "total": 3350
 }
