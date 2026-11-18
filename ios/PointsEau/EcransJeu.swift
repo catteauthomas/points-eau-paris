@@ -314,8 +314,8 @@ struct APropos: View {
                     Label("Chaque fontaine photographiée te rapporte des points selon sa rareté, une seule fois.", systemImage: "star.fill")
                     Label("Les défis donnent des bonus. L'objectif ultime : toutes les fontaines des 20 arrondissements.",
                           systemImage: "trophy.fill")
-                    Label("Les commerces partenaires sont sur la carte pour remplir ta gourde, mais ne comptent pas dans le jeu.",
-                          systemImage: "cup.and.saucer.fill")
+                    Label("De 21 h à 7 h, la carte ne montre que les points accessibles : les fontaines des parcs, squares et cimetières sont fermées la nuit.",
+                          systemImage: "moon.stars.fill")
                 }
                 Section("Points par fontaine") {
                     ligne("Fontaine à boire, borne, robinet", 10, .commune)
@@ -328,7 +328,6 @@ struct APropos: View {
                 }
                 Section("Données") {
                     Text("Fontaines et état du jour : Eau de Paris / Ville de Paris (Open Data Paris, licence ODbL)\(donnees.majTexte.isEmpty ? "" : ", données du " + donnees.majTexte).")
-                    Text("Commerces « Ici je choisis l'Eau de Paris » : Eau de Paris (Open Data Paris, licence ODbL).")
                     Text("Points d'eau complémentaires : © contributeurs OpenStreetMap (licence ODbL).")
                     Text("Fond de carte : Apple Plans.")
                 }

@@ -133,7 +133,10 @@ struct EcranCarte: View {
     }
 
     private func prochaineACollecter(_ l: CLLocation, sauf id: String) -> (PointEau, CLLocationDistance)? {
-        Calcul.plusProche(de: l, parmi: donnees.points) { $0.estFontaine && $0.ok && $0.id != id && !jeu.estCollectee($0.id) }
+        let nuit = Geo.estLaNuit()
+        return Calcul.plusProche(de: l, parmi: donnees.points) {
+            $0.estFontaine && $0.ok && $0.id != id && !jeu.estCollectee($0.id) && (!nuit || $0.ouvertLaNuit)
+        }
     }
 
     // MARK: Actions
@@ -357,7 +360,7 @@ struct BarreFiltres: View {
             HStack(spacing: 8) {
                 Pastille(titre: "Fontaines", symbole: "drop.fill", couleur: .blue, actif: $filtres.fontaines)
                 Pastille(titre: "Pétillantes", symbole: "bubbles.and.sparkles.fill", couleur: .purple, actif: $filtres.petillantes)
-                Pastille(titre: "Commerces", symbole: "cup.and.saucer.fill", couleur: .orange, actif: $filtres.commerces)
+                Pastille(titre: "Ouvertes la nuit", symbole: "moon.stars.fill", couleur: .indigo, actif: $filtres.nuit)
                 Pastille(titre: "Collectées", symbole: "checkmark", couleur: Color(StyleMarqueur.or), actif: $filtres.collectees)
                 Pastille(titre: "Hors service", symbole: "xmark", couleur: .gray, actif: $filtres.horsService)
             }

@@ -3,12 +3,13 @@
 
 Sources (la source officielle d'abord, OpenStreetMap seulement en complément) :
   1. Open Data Paris « fontaines-a-boire » (Eau de Paris) : fontaines de rue et de parc, avec leur état du jour
-  2. Open Data Paris « commerces-eau-de-paris » : commerces « Ici je choisis l'Eau de Paris » (gourde remplie gratuitement)
-  3. OpenStreetMap (Overpass) : amenity=drinking_water dans Paris, sans les doublons des fontaines officielles
+  2. OpenStreetMap (Overpass) : amenity=drinking_water dans Paris, sans les doublons des fontaines officielles
   + Open Data Paris « arrondissements » : contours officiels, pour ranger chaque point OSM dans son arrondissement
 
 Chaque fontaine reçoit « ar » (arrondissement 1-20, 0 = hors Paris, par ex. les cimetières parisiens de Thiais ou
 Pantin) et « pts » (points gagnés dans le jeu quand on la prend en photo sur place, selon sa rareté).
+« fermeNuit » marque les points inaccessibles la nuit : fontaines d'un square, parc, jardin ou cimetière, points OSM avec
+des horaires limités. Les commerces partenaires ne sont plus repris (fermés la nuit : l'appli doit marcher à 3 h du matin).
 
 Sorties :
   docs/data/points.json   servi par GitHub Pages, téléchargé par l'appli
@@ -44,7 +45,21 @@ OVERPASS = [
 AGENT = "points-eau-paris/1.0"
 
 # Nombre minimal de points pour qu'une récupération soit jugée réussie (environ 80 % des volumes de novembre 2026)
-MINIMUM = {"fontaines": 1050, "commerces": 1200, "osm": 1100}
+MINIMUM = {"fontaines": 1050, "osm": 1100}
+
+# Fontaines officielles dont l'adresse est un lieu fermé la nuit
+LIEUX_FERMES_LA_NUIT = ("SQUARE", "JARDIN", "PARC", "CIMETIERE")
+OUVERTS_LA_NUIT = ("PARC DE LA VILLETTE",)
+
+
+def ferme_la_nuit(voie):
+    v = " ".join((voie or "").upper().split())
+    return v.startswith(LIEUX_FERMES_LA_NUIT) and not v.startswith(OUVERTS_LA_NUIT)
+
+
+def horaires_24h(h):
+    h = (h or "").replace(" ", "")
+    return not h or "24/7" in h or "00:00-24:00" in h or "00:00-00:00" in h or "00:00-23:59" in h
 
 # Paris intra-muros avec les bois de Boulogne et de Vincennes
 BBOX = (48.80, 2.20, 48.91, 2.48)
@@ -202,32 +217,14 @@ def fontaines():
              "cat": "petillante" if code == "FTNE_PETILLANTE" else "fontaine",
              "lat": lat, "lon": lon, "type": nom, "ok": ok,
              "ar": arrondissement_commune(f.get("commune")), "pts": POINTS.get(nom, POINTS_DEFAUT)}
+        if ferme_la_nuit(f.get("voie")):
+            p["fermeNuit"] = True
         if not ok:
             p["motif"] = MOTIFS.get(f.get("motif_ind") or "", "Hors service")
             retour = (f.get("fin_ind") or "")[:10]
             if retour and retour >= aujourd_hui:  # une date de retour déjà passée n'apprend rien
                 p["retour"] = retour
         points.append(p)
-    return points
-
-
-def commerces():
-    lignes = telecharger(OPENDATA + "commerces-eau-de-paris/exports/json")
-    if not isinstance(lignes, list):
-        raise Rate("format inattendu")
-    points, vus = [], set()
-    for c in lignes:
-        g = c.get("geo_point_2d") or {}
-        lat, lon = g.get("lat", c.get("lat")), g.get("lon", c.get("lon"))
-        if lat is None or lon is None:
-            continue
-        lat, lon = coord(lat), coord(lon)
-        if not dans_paris(lat, lon) or (lat, lon, c.get("nom_commerce")) in vus:
-            continue
-        vus.add((lat, lon, c.get("nom_commerce")))
-        nom = " ".join((c.get("nom_commerce") or "Commerce partenaire").split()).title()
-        points.append({"id": "c" + str(c.get("id")), "src": "commerce", "cat": "commerce",
-                       "lat": lat, "lon": lon, "type": "Commerce partenaire", "nom": nom, "ok": True})
     return points
 
 
@@ -287,6 +284,8 @@ def osm(contours):
              "lat": lat, "lon": lon, "type": nom, "ok": True, "ar": ar, "pts": POINTS.get(nom, POINTS_DEFAUT)}
         if t.get("opening_hours"):
             p["horaires"] = t["opening_hours"][:80]
+            if not horaires_24h(t["opening_hours"]):
+                p["fermeNuit"] = True
         if t.get("seasonal") not in (None, "no"):
             p["saison"] = True
         points.append(p)
@@ -333,8 +332,7 @@ def main():
     contours = contours_arrondissements()
     if not contours:
         alertes.append("contours des arrondissements indisponibles : les points OSM sont classés « hors Paris »")
-    for cle, fonction, src in (("fontaines", fontaines, "fontaine"), ("commerces", commerces, "commerce"),
-                               ("osm", lambda: osm(contours), "osm")):
+    for cle, fonction, src in (("fontaines", fontaines, "fontaine"), ("osm", lambda: osm(contours), "osm")):
         try:
             pts = fonction()
             if len(pts) < MINIMUM[cle]:
@@ -351,7 +349,7 @@ def main():
             sources[cle] = dict(anciennes_dates.get(cle, {}), points=len(garde), garde=True)
 
     # Dates officielles des jeux Open Data (celle qu'on affiche dans l'appli)
-    for cle, slug in (("fontaines", "fontaines-a-boire"), ("commerces", "commerces-eau-de-paris")):
+    for cle, slug in (("fontaines", "fontaines-a-boire"),):
         if not sources[cle].get("garde"):
             d = date_jeu(slug)
             if d:
@@ -363,7 +361,7 @@ def main():
         sources["osm"]["points"] = len(resultats["osm"])
         sources["osm"]["avant_dedoublonnage"] = brut_osm
 
-    points = resultats["fontaines"] + resultats["osm"] + resultats["commerces"]
+    points = resultats["fontaines"] + resultats["osm"]
     points.sort(key=lambda p: p["id"])
     sortie = {
         "version": 1,
@@ -392,7 +390,7 @@ def main():
 
     hs = sum(1 for p in resultats["fontaines"] if not p["ok"])
     print(f"  fontaines officielles : {len(resultats['fontaines'])} (dont {hs} hors service)")
-    print(f"  commerces partenaires : {len(resultats['commerces'])}")
+    print(f"  fermés la nuit        : {sum(1 for p in points if p.get('fermeNuit'))}")
     print(f"  OpenStreetMap         : {len(resultats['osm'])} ajoutés (sur {brut_osm} avant dédoublonnage)")
     for a in alertes:
         print("::warning::" + a)

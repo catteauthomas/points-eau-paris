@@ -20,6 +20,7 @@ struct PointEau: Codable, Identifiable, Hashable {
     var nom: String?
     var horaires: String?
     var saison: Bool?
+    var fermeNuit: Bool?
     var ar: Int?
     var pts: Int?
 
@@ -31,6 +32,8 @@ struct PointEau: Codable, Identifiable, Hashable {
     var points: Int { pts ?? 10 }
     var arrondissement: Int { ar ?? 0 }
     var titre: String { nom ?? type }
+    /// Accessible à toute heure (pas dans un parc, un square ou un cimetière, pas d'horaires limités).
+    var ouvertLaNuit: Bool { fermeNuit != true }
     var rarete: Rarete { Rarete(points: points) }
 
     /// Date de retour en service, en clair (« 27/11 »).
@@ -130,6 +133,12 @@ enum Geo {
     static let paris = CLLocation(latitude: 48.8566, longitude: 2.3522)
 
     static func estAParis(_ l: CLLocation) -> Bool { l.distance(from: paris) < 20_000 }
+
+    /// Entre 21 h et 7 h, les parcs, squares et cimetières sont fermés.
+    static func estLaNuit(_ date: Date = Date()) -> Bool {
+        let h = Calendar.current.component(.hour, from: date)
+        return h >= 21 || h < 7
+    }
 
     /// Distance lisible : « 85 m », « 1,2 km ».
     static func distance(_ m: CLLocationDistance) -> String {

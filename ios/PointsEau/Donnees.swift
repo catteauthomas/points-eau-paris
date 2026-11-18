@@ -49,9 +49,9 @@ final class Donnees: ObservableObject {
     }
 
     private func appliquer(_ f: FichierDonnees) {
-        points = f.points
-        parId = Dictionary(f.points.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        recensement = Recensement(points: f.points)
+        points = f.points.filter { $0.categorie != .commerce }
+        parId = Dictionary(points.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        recensement = Recensement(points: points)
         genere = f.genere
         majFontaines = f.sources["fontaines"]?.maj ?? f.sources["fontaines"]?.date
     }
@@ -63,9 +63,10 @@ final class Donnees: ObservableObject {
         return p.count == 3 ? "\(p[2])/\(p[1])/\(p[0])" : ""
     }
 
-    /// Fontaine en service la plus proche (les commerces et les fontaines hors service sont ignorés).
+    /// Fontaine en service la plus proche (la nuit, seulement celles qui sont accessibles).
     func plusProche(de l: CLLocation, filtre: (PointEau) -> Bool = { _ in true }) -> (PointEau, CLLocationDistance)? {
-        Calcul.plusProche(de: l, parmi: points) { $0.estFontaine && $0.ok && filtre($0) }
+        let nuit = Geo.estLaNuit()
+        return Calcul.plusProche(de: l, parmi: points) { $0.estFontaine && $0.ok && (!nuit || $0.ouvertLaNuit) && filtre($0) }
     }
 }
 

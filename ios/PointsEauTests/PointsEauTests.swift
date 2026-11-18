@@ -25,7 +25,9 @@ final class PointsEauTests: XCTestCase {
     func testDonneesEmbarquees() throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: "points", withExtension: "json"))
         let f = try JSONDecoder().decode(FichierDonnees.self, from: Data(contentsOf: url))
-        XCTAssertGreaterThan(f.points.count, 2500)
+        XCTAssertGreaterThan(f.points.count, 1500)
+        XCTAssertFalse(f.points.contains { $0.cat == "commerce" })
+        XCTAssertGreaterThan(f.points.filter { $0.fermeNuit == true }.count, 100)
         XCTAssertEqual(Set(f.points.map(\.id)).count, f.points.count)
         let r = Recensement(points: f.points)
         XCTAssertGreaterThan(r.totalParis, 1000)
@@ -102,6 +104,19 @@ final class PointsEauTests: XCTestCase {
         let c = Contexte(visites: [v(0), v(1), v(2), v(4), v(5)], recensement: Recensement(), calendrier: cal)
         XCTAssertEqual(c.serie, 3)
         XCTAssertEqual(c.maxParJour, 1)
+    }
+
+    func testNuit() {
+        let cal = Calendar.current
+        let jour = cal.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 14))!
+        let nuit = cal.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 3))!
+        XCTAssertFalse(Geo.estLaNuit(jour))
+        XCTAssertTrue(Geo.estLaNuit(nuit))
+        var parc = point("parc")
+        parc.fermeNuit = true
+        XCTAssertFalse(Filtres(nuit: true).montre(parc, collectee: false))
+        XCTAssertTrue(Filtres(nuit: false).montre(parc, collectee: false))
+        XCTAssertTrue(Filtres(nuit: true).montre(point("rue"), collectee: false))
     }
 
     func testNiveaux() {

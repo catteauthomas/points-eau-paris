@@ -89,6 +89,14 @@ struct FichePoint: View {
             if let h = point.horaires {
                 Label("Horaires : \(h)", systemImage: "clock")
             }
+            if point.fermeNuit == true {
+                Label(point.src == "osm" ? "Pas accessible à toute heure." : "Dans un parc, un square ou un cimetière : fermée la nuit.",
+                      systemImage: "moon.zzz.fill")
+                    .foregroundStyle(.indigo)
+            } else if point.estFontaine {
+                Label("Accessible jour et nuit.", systemImage: "moon.stars.fill")
+                    .foregroundStyle(.secondary)
+            }
             if point.saison == true {
                 Label("Fermée une partie de l'année (point saisonnier).", systemImage: "snowflake")
             }

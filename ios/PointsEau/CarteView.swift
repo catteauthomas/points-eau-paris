@@ -5,12 +5,15 @@ import SwiftUI
 struct Filtres: Equatable {
     var fontaines = true
     var petillantes = true
-    var commerces = true
+    var commerces = false
+    /// Seulement les points accessibles à toute heure (activé tout seul la nuit).
+    var nuit = Geo.estLaNuit()
     var horsService = false
     var collectees = true
 
     func montre(_ p: PointEau, collectee: Bool) -> Bool {
         if collectee && !collectees { return false }
+        if nuit && !p.ouvertLaNuit { return false }
         if !p.ok && !horsService && !collectee { return false }
         switch p.categorie {
         case .fontaine: return fontaines
