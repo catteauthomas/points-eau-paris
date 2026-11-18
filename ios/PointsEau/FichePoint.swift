@@ -188,6 +188,7 @@ struct EcranVictoire: View {
     @State private var apparu = false
 
     var body: some View {
+        GeometryReader { geo in
         ScrollView {
             VStack(spacing: 14) {
                 Group {
@@ -202,7 +203,6 @@ struct EcranVictoire: View {
                 .clipShape(Circle())
                 .overlay(Circle().stroke(celebration.point.rarete.couleur, lineWidth: 5))
                 .scaleEffect(apparu ? 1 : 0.4)
-                .padding(.top, 24)
 
                 Text("+\(celebration.visite.pts)")
                     .font(.system(size: 60, weight: .heavy, design: .rounded))
@@ -252,6 +252,8 @@ struct EcranVictoire: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
+            .frame(maxWidth: .infinity, minHeight: geo.size.height)
+        }
         }
         .onAppear {
             UINotificationFeedbackGenerator().notificationOccurred(.success)

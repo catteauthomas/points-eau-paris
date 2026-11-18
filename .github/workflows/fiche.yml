@@ -1,0 +1,47 @@
+# Fiche App Store de l'appli Fontaines par l'API (machine Linux, rapide).
+# « Run workflow » à la main. Sans « soumettre », remplit seulement la fiche (sans risque, relançable).
+name: Fiche App Store
+
+on:
+  workflow_dispatch:
+    inputs:
+      privacy_url:
+        description: "Lien public de la politique de confidentialité"
+        required: false
+        default: "https://catteauthomas.github.io/points-eau-paris/confidentialite.html"
+      support_url:
+        description: "Lien public de la page d'aide"
+        required: false
+        default: "https://catteauthomas.github.io/points-eau-paris/"
+      build:
+        description: "Numéro du build à attacher (vide = le plus récent)"
+        required: false
+      soumettre:
+        description: "Envoyer en vérification chez Apple (une seule fois !)"
+        type: boolean
+        default: false
+
+jobs:
+  fiche:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer PyJWT et Pillow
+        run: pip install "pyjwt[crypto]" pillow
+
+      - name: Remplir la fiche
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          PRIVACY_URL: ${{ inputs.privacy_url }}
+          SUPPORT_URL: ${{ inputs.support_url }}
+          BUILD_NUMBER: ${{ inputs.build }}
+          SUBMIT: ${{ inputs.soumettre }}
+        run: python3 scripts/asc_fiche.py

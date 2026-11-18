@@ -23,7 +23,7 @@ struct Filtres: Equatable {
 /// Ordre envoyé à la carte (centrer, suivre la position…). Chaque ordre n'est exécuté qu'une fois.
 struct Commande: Equatable {
     enum Action: Equatable {
-        case centrer(lat: Double, lon: Double, metres: Double)
+        case centrer(lat: Double, lon: Double, metres: Double, suivre: Bool = false)
         case suivre(boussole: Bool)
     }
 
@@ -111,7 +111,6 @@ struct CarteView: UIViewRepresentable {
         private var annotations: [String: AnnotationEau] = [:]
         private var signature = ""
         private var routeAffichee: MKRoute?
-        private var premierCentrage = false
 
         init(_ parent: CarteView) {
             self.parent = parent
@@ -164,11 +163,12 @@ struct CarteView: UIViewRepresentable {
 
         func executer(_ c: Commande, _ carte: MKMapView) {
             switch c.action {
-            case let .centrer(lat, lon, metres):
+            case let .centrer(lat, lon, metres, suivre):
                 carte.setUserTrackingMode(.none, animated: false)
                 let centre = CLLocationCoordinate2D(latitude: lat, longitude: lon)
                 carte.setRegion(MKCoordinateRegion(center: centre, latitudinalMeters: metres, longitudinalMeters: metres),
-                                animated: true)
+                                animated: !suivre)
+                if suivre { carte.setUserTrackingMode(.follow, animated: true) }
             case let .suivre(boussole):
                 carte.setUserTrackingMode(boussole ? .followWithHeading : .follow, animated: true)
             }
@@ -236,15 +236,6 @@ struct CarteView: UIViewRepresentable {
             r.lineCap = .round
             r.lineJoin = .round
             return r
-        }
-
-        func mapView(_ carte: MKMapView, didUpdate userLocation: MKUserLocation) {
-            guard !premierCentrage, let l = userLocation.location, l.horizontalAccuracy >= 0 else { return }
-            premierCentrage = true
-            if Geo.estAParis(l) {
-                carte.setRegion(MKCoordinateRegion(center: l.coordinate, latitudinalMeters: 900, longitudinalMeters: 900),
-                                animated: true)
-            }
         }
 
         func mapView(_ carte: MKMapView, didChange mode: MKUserTrackingMode, animated: Bool) {

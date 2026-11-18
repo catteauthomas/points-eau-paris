@@ -15,6 +15,7 @@ struct EcranCarte: View {
     @State private var suivi: MKUserTrackingMode = .none
     @State private var calculEnCours = false
     @State private var alerte: String?
+    @State private var centreSurMoi = false
 
     var body: some View {
         ZStack {
@@ -57,6 +58,8 @@ struct EcranCarte: View {
             }
             .ignoresSafeArea()
         }
+        .onAppear { centrerAuDebut(position.location) }
+        .onChange(of: position.location) { _, l in centrerAuDebut(l) }
         .alert("Pas tout à fait", isPresented: Binding(get: { alerte != nil }, set: { if !$0 { alerte = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -134,6 +137,14 @@ struct EcranCarte: View {
     }
 
     // MARK: Actions
+
+    /// Au premier point GPS (à Paris), la carte zoome sur toi et te suit.
+    private func centrerAuDebut(_ l: CLLocation?) {
+        guard !centreSurMoi, let l else { return }
+        centreSurMoi = true
+        guard Geo.estAParis(l) else { return }
+        commande = Commande(action: .centrer(lat: l.coordinate.latitude, lon: l.coordinate.longitude, metres: 900, suivre: true))
+    }
 
     private func photographier(_ p: PointEau) {
         guard let l = position.location, Regles.aPortee(p, depuis: l) else {
@@ -293,8 +304,9 @@ struct BandeauProche: View {
                         Button {
                             onProchaine(q)
                         } label: {
-                            Label("À collecter : \(Geo.distance(d))", systemImage: "camera.viewfinder")
+                            Label("Collecter · \(Geo.distance(d))", systemImage: "camera.viewfinder")
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.75)
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
