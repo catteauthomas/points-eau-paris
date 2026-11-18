@@ -6,6 +6,9 @@ Facultative : TESTER_EMAIL (par défaut thomas.c@tteau.com, utilisateur App Stor
 
 Usage : python3 scripts/asc.py <commande>
   check    vérifie la clé et liste les applis du compte
+  testflight  testeurs externes : description de test, contact, groupe « Amis » avec lien public, dernier build,
+              testeurs de TESTEURS (adresses séparées par des virgules), envoi en vérification bêta
+  beta     état de la vérification bêta du dernier build, lien public et testeurs du groupe « Amis » (lecture seule)
   bundle   enregistre l'identifiant com.catteauthomas.pointseau (App ID)
   interne  groupe TestFlight interne « Interne » (accès à tous les builds) + le testeur, puis état des builds
 L'API ne sait pas créer la fiche de l'appli : elle se crée dans App Store Connect (Apps → +).
@@ -18,12 +21,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from pathlib import Path
+
 import jwt
 
 BUNDLE = "com.catteauthomas.pointseau"
 NAME = "Fontaines Paris"
 API = "https://api.appstoreconnect.apple.com"
 TESTER = os.environ.get("TESTER_EMAIL", "thomas.c@tteau.com").strip()
+ROOT = Path(__file__).resolve().parent.parent
+META = json.loads((ROOT / "appstore" / "metadata.json").read_text(encoding="utf-8"))
+PAGES = "https://catteauthomas.github.io/points-eau-paris/"
 
 
 class ApiError(Exception):
@@ -157,8 +165,114 @@ def cmd_diag():
                 print("   ", k, v.get("links"))
 
 
+def contact(app_id):
+    """Coordonnées de vérification déjà saisies sur la fiche App Store de l'appli (workflow Fiche App Store)."""
+    keys = ["contactFirstName", "contactLastName", "contactPhone", "contactEmail"]
+    for v in get(f"/v1/apps/{app_id}/appStoreVersions", limit="5")["data"]:
+        try:
+            a = (get(f"/v1/appStoreVersions/{v['id']}/appStoreReviewDetail").get("data") or {}).get("attributes") or {}
+        except ApiError:
+            continue
+        if all(a.get(k) for k in keys):
+            return {k: a[k] for k in keys}
+    raise SystemExit("Coordonnées de vérification introuvables : lance d'abord le workflow Fiche App Store.")
+
+
+def groupe_amis(app_id):
+    groups = get(f"/v1/apps/{app_id}/betaGroups")["data"]
+    return next((x for x in groups if x["attributes"]["name"] == META["beta"]["group"]), None)
+
+
+def dernier_build(app_id):
+    b = get("/v1/builds", **{"filter[app]": app_id, "filter[processingState]": "VALID", "sort": "-uploadedDate", "limit": "1"})["data"]
+    return b[0] if b else None
+
+
+def etat_beta(build):
+    d = get(f"/v1/builds/{build['id']}/buildBetaDetail")["data"]["attributes"]
+    return d.get("externalBuildState") or "?"
+
+
+def cmd_testflight():
+    app = find_app()
+    if not app:
+        raise SystemExit(f"Fiche introuvable pour {BUNDLE}.")
+    app_id, beta = app["id"], META["beta"]
+    # Description de test
+    attrs = {"description": beta["description"], "feedbackEmail": beta["feedbackEmail"],
+             "marketingUrl": PAGES, "privacyPolicyUrl": PAGES + "confidentialite.html"}
+    locs = get(f"/v1/apps/{app_id}/betaAppLocalizations")["data"]
+    cur = next((l for l in locs if l["attributes"]["locale"].startswith("fr")), None)
+    if cur:
+        call("PATCH", f"/v1/betaAppLocalizations/{cur['id']}", {"data": {"type": "betaAppLocalizations", "id": cur["id"], "attributes": attrs}})
+    else:
+        create("betaAppLocalizations", dict(attrs, locale="fr-FR"), {"app": rel("apps", app_id)})
+    print("Description de test : ok")
+    # Contact pour la vérification bêta
+    d = get(f"/v1/apps/{app_id}/betaAppReviewDetail")["data"]
+    call("PATCH", f"/v1/betaAppReviewDetails/{d['id']}", {"data": {"type": "betaAppReviewDetails", "id": d["id"], "attributes": dict(
+        contact(app_id), demoAccountRequired=False, notes=META["reviewNotes"])}})
+    print("Contact pour la vérification bêta : ok")
+    # Dernier build et « À tester »
+    b = dernier_build(app_id)
+    if not b:
+        raise SystemExit("Aucun build traité pour l'instant.")
+    blocs = get(f"/v1/builds/{b['id']}/betaBuildLocalizations")["data"]
+    cur = next((l for l in blocs if l["attributes"]["locale"].startswith("fr")), None)
+    if cur:
+        call("PATCH", f"/v1/betaBuildLocalizations/{cur['id']}", {"data": {"type": "betaBuildLocalizations", "id": cur["id"], "attributes": {"whatsNew": beta["whatToTest"]}}})
+    else:
+        create("betaBuildLocalizations", {"locale": "fr-FR", "whatsNew": beta["whatToTest"]}, {"build": rel("builds", b["id"])})
+    print(f"Build {b['attributes']['version']} : « À tester » rempli")
+    # Groupe externe avec lien public
+    g = groupe_amis(app_id)
+    if not g:
+        g = create("betaGroups", {"name": beta["group"], "publicLinkEnabled": True, "publicLinkLimitEnabled": False,
+                                  "feedbackEnabled": True}, {"app": rel("apps", app_id)})
+        print(f"Groupe externe « {beta['group']} » créé")
+    call("POST", f"/v1/betaGroups/{g['id']}/relationships/builds", {"data": [{"type": "builds", "id": b["id"]}]})
+    # Testeurs (Apple leur envoie l'invitation dès que le build est validé pour les testeurs externes)
+    for email in [e.strip() for e in os.environ.get("TESTEURS", "").split(",") if e.strip()]:
+        try:
+            create("betaTesters", {"email": email}, {"betaGroups": {"data": [{"type": "betaGroups", "id": g["id"]}]}})
+            print(f"Testeur ajouté : {email}")
+        except ApiError as e:
+            existing = get("/v1/betaTesters", **{"filter[email]": email})["data"]
+            if not existing:
+                raise SystemExit(f"Ajout de {email} impossible : {e}")
+            call("POST", f"/v1/betaGroups/{g['id']}/relationships/betaTesters", {"data": [{"type": "betaTesters", "id": existing[0]["id"]}]})
+            print(f"Testeur existant ajouté au groupe : {email}")
+    # Envoi en vérification bêta
+    try:
+        create("betaAppReviewSubmissions", {}, {"build": rel("builds", b["id"])})
+        print("Build envoyé en vérification bêta (testeurs externes)")
+    except ApiError as e:
+        if e.code != 409:
+            raise
+        print(f"Vérification bêta déjà demandée ({str(e)[:120]})")
+    cmd_beta()
+
+
+def cmd_beta():
+    """Lecture seule : état de la vérification bêta, lien public, testeurs du groupe externe."""
+    app = find_app()
+    b = dernier_build(app["id"])
+    if b:
+        print(f"ETAT_BETA build {b['attributes']['version']} : {etat_beta(b)}")
+    g = groupe_amis(app["id"])
+    if not g:
+        print("Pas encore de groupe externe.")
+        return
+    g = get(f"/v1/betaGroups/{g['id']}")["data"]
+    print(f"LIEN_PUBLIC {g['attributes'].get('publicLink') or '(pas encore actif)'}")
+    for t in get(f"/v1/betaGroups/{g['id']}/betaTesters", limit="50")["data"]:
+        a = t["attributes"]
+        print(f"Testeur {a.get('email')} : {a.get('state') or a.get('inviteType') or ''}")
+
+
 if __name__ == "__main__":
-    commands = {"check": cmd_check, "bundle": cmd_bundle, "interne": cmd_interne, "builds": cmd_builds, "diag": cmd_diag}
+    commands = {"check": cmd_check, "bundle": cmd_bundle, "interne": cmd_interne, "builds": cmd_builds, "diag": cmd_diag,
+                "testflight": cmd_testflight, "beta": cmd_beta}
     if len(sys.argv) < 2 or sys.argv[1] not in commands:
         raise SystemExit(__doc__)
     commands[sys.argv[1]]()

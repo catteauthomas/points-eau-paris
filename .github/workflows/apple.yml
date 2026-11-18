@@ -4,6 +4,8 @@
 # - bundle  : enregistre l'identifiant com.catteauthomas.pointseau (à faire avant de créer la fiche de l'appli)
 # - interne : groupe TestFlight interne + testeur, et état des derniers builds
 # - builds  : état des derniers builds (lecture seule)
+# - testflight : testeurs externes (groupe « Amis », lien public, vérification bêta), avec les adresses de « testeurs »
+# - beta    : état de la vérification bêta, lien public et testeurs (lecture seule)
 name: Apple
 
 on:
@@ -12,8 +14,11 @@ on:
       commande:
         description: "Commande"
         type: choice
-        options: [check, bundle, interne, builds, diag]
+        options: [check, bundle, interne, builds, diag, testflight, beta]
         default: check
+      testeurs:
+        description: "testflight : adresses des testeurs externes (séparées par des virgules)"
+        required: false
 
 jobs:
   asc:
@@ -34,4 +39,5 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          TESTEURS: ${{ inputs.testeurs }}
         run: python3 scripts/asc.py ${{ inputs.commande }}

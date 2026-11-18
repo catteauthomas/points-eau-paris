@@ -48,5 +48,11 @@
         2796
       ]
     }
-  ]
+  ],
+  "beta": {
+    "group": "Amis",
+    "feedbackEmail": "thomas.c@tteau.com",
+    "description": "Fontaines montre tous les points d'eau potable de Paris autour de toi, en direct, avec la fontaine la plus proche et l'itinéraire à pied. C'est aussi un jeu : va jusqu'à une fontaine, prends-la en photo sur place, gagne des points et réussis des défis. Ta position et tes photos restent sur ton téléphone.",
+    "whatToTest": "Ouvre l'appli dans Paris et autorise la localisation. Va jusqu'à une fontaine : à moins de 40 m, le bouton « Prendre en photo » apparaît. Regarde aussi les onglets Défis et Collection. Dis-nous ce qui bloque ou ce qui t'amuse."
+  }
 }
