@@ -259,6 +259,14 @@ def cmd_beta():
     b = dernier_build(app["id"])
     if b:
         print(f"ETAT_BETA build {b['attributes']['version']} : {etat_beta(b)}")
+        d = get(f"/v1/builds/{b['id']}/buildBetaDetail")["data"]["attributes"]
+        print(f"ETAT_INTERNE build {b['attributes']['version']} : {d.get('internalBuildState') or '?'}")
+        try:
+            r = get(f"/v1/builds/{b['id']}/betaAppReviewSubmission")["data"]
+            if r:
+                print(f"VERIF_BETA : {r['attributes'].get('betaReviewState')} (envoyée le {r['attributes'].get('submittedDate')})")
+        except ApiError as e:
+            print(f"VERIF_BETA : illisible ({str(e)[:80]})")
     g = groupe_amis(app["id"])
     if not g:
         print("Pas encore de groupe externe.")
