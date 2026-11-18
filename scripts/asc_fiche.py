@@ -291,7 +291,13 @@ def price_free():
             raise
         sched = None
     if sched:
-        manual = get(f"/v1/appPriceSchedules/{sched['id']}/manualPrices", include="appPricePoint")
+        # Appli toute neuve : Apple renvoie un calendrier de prix vide, et 404 sur ses prix manuels
+        try:
+            manual = get(f"/v1/appPriceSchedules/{sched['id']}/manualPrices", include="appPricePoint")
+        except ApiError as e:
+            if e.code != 404:
+                raise
+            manual = {}
         pts = [p for p in manual.get("included", []) if p["type"] == "appPricePoints"]
         if pts and all(float(p["attributes"].get("customerPrice") or 0) == 0 for p in pts):
             return "déjà gratuite"
