@@ -1,0 +1,41 @@
+# Mise à jour quotidienne des points d'eau (Open Data Paris + OpenStreetMap) → docs/data/points.json (GitHub Pages)
+# et ios/PointsEau/points.json (copie embarquée dans le prochain build de l'appli). Commit seulement si les points ont changé.
+name: Données
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: donnees
+  cancel-in-progress: false
+
+jobs:
+  maj:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Récupérer les points d'eau
+        run: python3 scraper/scrape.py
+
+      - name: Enregistrer si quelque chose a changé
+        run: |
+          if git diff --quiet -- docs/data ios/PointsEau/points.json; then
+            echo "Rien de neuf aujourd'hui."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data ios/PointsEau/points.json
+          git commit -m "Données du $(date -u +%d/%m/%Y)"
+          git push

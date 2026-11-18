@@ -1,0 +1,21 @@
+{
+  "genere": "2026-11-18T07:41:39Z",
+  "sources": {
+    "fontaines": {
+      "date": "2026-11-18",
+      "points": 1323,
+      "maj": "2026-11-16"
+    },
+    "commerces": {
+      "date": "2026-11-18",
+      "points": 1494,
+      "maj": "2026-11-16"
+    },
+    "osm": {
+      "date": "2026-11-18",
+      "points": 525,
+      "avant_dedoublonnage": 1391
+    }
+  },
+  "total": 3342
+}

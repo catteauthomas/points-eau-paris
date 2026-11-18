@@ -1,0 +1,37 @@
+# Réglages App Store Connect par l'API (machine Linux, rapide)
+# « Run workflow » à la main, avec la commande :
+# - check   : vérifie la clé et liste les applis du compte
+# - bundle  : enregistre l'identifiant com.catteauthomas.pointseau (à faire avant de créer la fiche de l'appli)
+# - interne : groupe TestFlight interne + testeur, et état des derniers builds
+# - builds  : état des derniers builds (lecture seule)
+name: Apple
+
+on:
+  workflow_dispatch:
+    inputs:
+      commande:
+        description: "Commande"
+        type: choice
+        options: [check, bundle, interne, builds, diag]
+        default: check
+
+jobs:
+  asc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer PyJWT
+        run: pip install "pyjwt[crypto]"
+
+      - name: App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: python3 scripts/asc.py ${{ inputs.commande }}
