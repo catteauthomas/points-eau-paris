@@ -224,13 +224,11 @@ struct CarteView: UIViewRepresentable {
             if a.point.categorie == .commerce {
                 m.clusteringIdentifier = "commerce"
                 m.displayPriority = .defaultLow
-            } else if a.point.coupeeHiver && !a.collectee {
-                // Regroupées entre elles : un groupe de fontaines en service ne compte pas celles qui sont gelées
-                m.clusteringIdentifier = "gel"
-                m.displayPriority = .defaultLow
             } else {
+                // Les fontaines gelées se regroupent avec les autres (avec une priorité plus basse, la carte les cachait
+                // dès qu'elles touchaient une fontaine en service) ; un groupe entièrement gelé reste bleu glacier.
                 m.clusteringIdentifier = a.collectee ? "collectee" : "eau"
-                m.displayPriority = a.point.rarete >= .rare && !a.collectee ? .required : .defaultHigh
+                m.displayPriority = a.point.rarete >= .rare && !a.collectee && !a.point.coupeeHiver ? .required : .defaultHigh
             }
             return m
         }

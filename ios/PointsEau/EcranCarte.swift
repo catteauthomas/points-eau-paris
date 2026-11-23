@@ -58,7 +58,16 @@ struct EcranCarte: View {
             }
             .ignoresSafeArea()
         }
-        .onAppear { centrerAuDebut(position.location) }
+        .onAppear {
+            centrerAuDebut(position.location)
+            #if DEBUG
+            // Captures d'écran : « -fiche <id> » ouvre la fiche d'un point d'eau
+            let a = ProcessInfo.processInfo.arguments
+            if let i = a.firstIndex(of: "-fiche"), i + 1 < a.count, let p = donnees.parId[a[i + 1]] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { selection = p }
+            }
+            #endif
+        }
         .onChange(of: position.location) { _, l in centrerAuDebut(l) }
         .alert("Pas tout à fait", isPresented: Binding(get: { alerte != nil }, set: { if !$0 { alerte = nil } })) {
             Button("OK", role: .cancel) {}

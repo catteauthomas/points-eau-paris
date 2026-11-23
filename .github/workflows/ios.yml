@@ -92,6 +92,8 @@ jobs:
           # Contrôles (pas pour la fiche) : fontaines coupées pour l'hiver au parc Monceau, points d'eau de Levallois
           prendre 6-hiver 48.87980,2.30900 -demo
           prendre 7-levallois 48.89350,2.28700 -demo
+          prendre 8-fiche-gel 48.87980,2.30900 -demo -fiche f450071872
+          prendre 9-fiche-levallois 48.89350,2.28700 -demo -fiche on7942644729
           ls -la "$OUT"
 
       - uses: actions/upload-artifact@v4
