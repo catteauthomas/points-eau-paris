@@ -15,6 +15,10 @@ struct FichePoint: View {
     private var visite: Visite? { jeu.visites[point.id] }
     private var aPortee: Bool { position.location.map { Regles.aPortee(point, depuis: $0) } ?? false }
     private var style: (UIColor, String) { StyleMarqueur.style(point, collectee: visite != nil) }
+    /// En hiver, seule Eau de Paris publie ses coupures : pour les autres points, on ne sait pas s'ils coulent.
+    private var hiverInconnu: Bool {
+        !point.hiverConnu && point.estFontaine && Geo.estLHiver() && point.saison != true
+    }
 
     var body: some View {
         ScrollView {
@@ -78,6 +82,9 @@ struct FichePoint: View {
                 BadgeGel()
                 Text("Elle ne coule pas en ce moment. Eau de Paris coupe ces fontaines pendant le froid, pour protéger les tuyaux du gel et éviter le verglas. Elles sont remises en eau au printemps, en général en avril.")
                     .font(.footnote).foregroundStyle(.secondary)
+            } else if point.ok && hiverInconnu {
+                Label("État d'hiver inconnu : ce point peut être coupé à cause du gel.", systemImage: "snowflake")
+                    .foregroundStyle(Color(StyleMarqueur.glace))
             } else if point.ok {
                 Label("En service", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
             } else {
@@ -103,11 +110,6 @@ struct FichePoint: View {
             }
             if point.saison == true {
                 Label("Fermée une partie de l'année (point saisonnier).", systemImage: "snowflake")
-            }
-            if !point.hiverConnu && point.estFontaine && Geo.estLHiver() && point.saison != true {
-                Label("En hiver, ce point peut être coupé à cause du gel : on ne sait pas s'il coule en ce moment.",
-                      systemImage: "snowflake")
-                    .font(.footnote).foregroundStyle(.secondary)
             }
             if point.src == "osm" {
                 Text("Point signalé par OpenStreetMap.").font(.footnote).foregroundStyle(.secondary)
