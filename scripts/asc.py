@@ -11,6 +11,7 @@ Usage : python3 scripts/asc.py <commande>
   beta     état de la vérification bêta du dernier build, lien public et testeurs du groupe « Amis » (lecture seule)
   bundle   enregistre l'identifiant com.catteauthomas.pointseau (App ID)
   interne  groupe TestFlight interne « Interne » (accès à tous les builds) + le testeur, puis état des builds
+  versions état des versions App Store (en vérification, en vente…) et des dernières soumissions (lecture seule)
 L'API ne sait pas créer la fiche de l'appli : elle se crée dans App Store Connect (Apps → +).
 """
 import json
@@ -153,6 +154,20 @@ def cmd_builds():
         print(f"Build {a['version']} : {a['processingState']} (envoyé le {a['uploadedDate'][:16].replace('T', ' ')})")
 
 
+def cmd_versions():
+    """Lecture seule : versions App Store et leur état (PREPARE_FOR_SUBMISSION, WAITING_FOR_REVIEW, READY_FOR_SALE…)."""
+    app = find_app()
+    if not app:
+        raise SystemExit(f"Fiche introuvable pour {BUNDLE}.")
+    for v in get(f"/v1/apps/{app['id']}/appStoreVersions", **{"filter[platform]": "IOS", "limit": "10"})["data"]:
+        a = v["attributes"]
+        etat = a.get("appVersionState") or a.get("appStoreState")
+        print(f"Version {a['versionString']} : {etat} (créée le {(a.get('createdDate') or '')[:10]})")
+    for s in get("/v1/reviewSubmissions", **{"filter[app]": app["id"], "filter[platform]": "IOS", "limit": "5"})["data"]:
+        a = s["attributes"]
+        print(f"Soumission {s['id'][:8]} : {a.get('state')} (envoyée le {(a.get('submittedDate') or '')[:16].replace('T', ' ')})")
+
+
 def cmd_diag():
     """Lecture seule : relations exposées par l'API pour la fiche (recherche des déclarations App Compliance)."""
     app = find_app()
@@ -280,7 +295,7 @@ def cmd_beta():
 
 if __name__ == "__main__":
     commands = {"check": cmd_check, "bundle": cmd_bundle, "interne": cmd_interne, "builds": cmd_builds, "diag": cmd_diag,
-                "testflight": cmd_testflight, "beta": cmd_beta}
+                "testflight": cmd_testflight, "beta": cmd_beta, "versions": cmd_versions}
     if len(sys.argv) < 2 or sys.argv[1] not in commands:
         raise SystemExit(__doc__)
     commands[sys.argv[1]]()

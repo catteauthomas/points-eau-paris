@@ -6,6 +6,7 @@
 # - builds  : état des derniers builds (lecture seule)
 # - testflight : testeurs externes (groupe « Amis », lien public, vérification bêta), avec les adresses de « testeurs »
 # - beta    : état de la vérification bêta, lien public et testeurs (lecture seule)
+# - versions : état des versions App Store et des soumissions (lecture seule)
 name: Apple
 
 on:
@@ -14,7 +15,7 @@ on:
       commande:
         description: "Commande"
         type: choice
-        options: [check, bundle, interne, builds, diag, testflight, beta]
+        options: [check, bundle, interne, builds, diag, testflight, beta, versions]
         default: check
       testeurs:
         description: "testflight : adresses des testeurs externes (séparées par des virgules)"
