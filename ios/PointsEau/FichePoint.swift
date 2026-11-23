@@ -63,7 +63,7 @@ struct FichePoint: View {
         if point.categorie == .commerce {
             morceaux.append("Ici, je choisis l'Eau de Paris")
         } else {
-            morceaux.append(point.arrondissement == 0 ? "Hors Paris" : "Paris \(Geo.arrondissement(point.arrondissement))")
+            morceaux.append(point.lieu)
         }
         if let d = distance { morceaux.append("à \(Geo.distance(d))") }
         return morceaux.joined(separator: " · ")
@@ -74,6 +74,10 @@ struct FichePoint: View {
             if point.categorie == .commerce {
                 Label("Gourde remplie ou verre d'eau gratuit, aux heures d'ouverture du commerce.",
                       systemImage: "cup.and.saucer.fill")
+            } else if point.coupeeHiver {
+                BadgeGel()
+                Text("Elle ne coule pas en ce moment. Eau de Paris coupe ces fontaines pendant le froid, pour protéger les tuyaux du gel et éviter le verglas. Elles sont remises en eau au printemps, en général en avril.")
+                    .font(.footnote).foregroundStyle(.secondary)
             } else if point.ok {
                 Label("En service", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
             } else {
@@ -100,8 +104,15 @@ struct FichePoint: View {
             if point.saison == true {
                 Label("Fermée une partie de l'année (point saisonnier).", systemImage: "snowflake")
             }
+            if !point.hiverConnu && point.estFontaine && Geo.estLHiver() && point.saison != true {
+                Label("En hiver, ce point peut être coupé à cause du gel : on ne sait pas s'il coule en ce moment.",
+                      systemImage: "snowflake")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
             if point.src == "osm" {
                 Text("Point signalé par OpenStreetMap.").font(.footnote).foregroundStyle(.secondary)
+            } else if point.src == "gpso" {
+                Text("Borne-fontaine de Grand Paris Seine Ouest.").font(.footnote).foregroundStyle(.secondary)
             }
         }
         .font(.subheadline)
@@ -144,6 +155,18 @@ struct FichePoint: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(point.rarete.couleur.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
+    }
+}
+
+/// Pastille « coupée pour l'hiver » d'une fontaine gelée.
+struct BadgeGel: View {
+    var body: some View {
+        Label("Coupée pour l'hiver : risque de gel", systemImage: "snowflake")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Color(StyleMarqueur.glace), in: Capsule())
     }
 }
 
@@ -219,7 +242,7 @@ struct EcranVictoire: View {
 
                 VStack(spacing: 4) {
                     Text(celebration.point.titre).font(.title3.bold())
-                    Text("\(celebration.point.rarete.nom) · \(celebration.point.arrondissement == 0 ? "Hors Paris" : "Paris " + Geo.arrondissement(celebration.point.arrondissement))")
+                    Text("\(celebration.point.rarete.nom) · \(celebration.point.lieu)")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
 

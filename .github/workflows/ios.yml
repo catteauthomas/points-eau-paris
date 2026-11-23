@@ -89,6 +89,9 @@ jobs:
           prendre 3-defis 48.8612,2.3390 -demo -onglet 1
           prendre 4-collection 48.8612,2.3390 -demo -onglet 2
           prendre 5-victoire 48.8612,2.3390 -demo -victoire
+          # Contrôles (pas pour la fiche) : fontaines coupées pour l'hiver au parc Monceau, points d'eau de Levallois
+          prendre 6-hiver 48.87980,2.30900 -demo
+          prendre 7-levallois 48.89350,2.28700 -demo
           ls -la "$OUT"
 
       - uses: actions/upload-artifact@v4

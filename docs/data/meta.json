@@ -1,16 +1,22 @@
 {
-  "genere": "2026-11-22T15:00:21Z",
+  "genere": "2026-11-23T10:05:07Z",
   "sources": {
     "fontaines": {
-      "date": "2026-11-22",
-      "points": 1323,
-      "maj": "2026-11-16"
+      "date": "2026-11-23",
+      "points": 1325,
+      "maj": "2026-11-23",
+      "etat": "carte Eau de Paris",
+      "nouvelles": 2
+    },
+    "gpso": {
+      "date": "2026-11-23",
+      "points": 66
     },
     "osm": {
-      "date": "2026-11-22",
-      "points": 533,
-      "avant_dedoublonnage": 1401
+      "date": "2026-11-23",
+      "points": 589,
+      "avant_dedoublonnage": 1534
     }
   },
-  "total": 1856
+  "total": 1980
 }

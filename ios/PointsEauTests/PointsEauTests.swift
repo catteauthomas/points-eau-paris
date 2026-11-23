@@ -34,6 +34,11 @@ final class PointsEauTests: XCTestCase {
         XCTAssertEqual(r.parArrondissement.count, 20)
         XCTAssertGreaterThan(r.petillantes, 5)
         XCTAssertTrue(f.points.allSatisfy { (48.6...49.1).contains($0.lat) && (2.0...2.7).contains($0.lon) })
+        // Les cinq communes voisines entre Paris et la Seine ont des points d'eau, et seulement elles
+        XCTAssertEqual(Set(r.parCommune.keys), Set(Geo.voisines))
+        XCTAssertGreaterThan(r.parCommune["Boulogne-Billancourt"] ?? 0, 40)
+        XCTAssertTrue(f.points.allSatisfy { $0.com == nil || $0.arrondissement == 0 })
+        XCTAssertTrue(f.points.allSatisfy { $0.gel != true || !$0.ok })
     }
 
     func testPlusProcheIgnoreCommercesEtHorsService() {
@@ -117,6 +122,87 @@ final class PointsEauTests: XCTestCase {
         XCTAssertFalse(Filtres(nuit: true).montre(parc, collectee: false))
         XCTAssertTrue(Filtres(nuit: false).montre(parc, collectee: false))
         XCTAssertTrue(Filtres(nuit: true).montre(point("rue"), collectee: false))
+    }
+
+    /// Fontaine coupée pour l'hiver : flocon sur la carte, pas proposée comme fontaine la plus proche, masquable.
+    func testCoupeeHiver() throws {
+        let json = #"{"id":"f1","src":"fontaine","cat":"fontaine","lat":48.86,"lon":2.34,"type":"Fontaine à boire","ok":false,"motif":"Coupée pour l'hiver (gel)","gel":true,"ar":12,"pts":10}"#
+        let gelee = try JSONDecoder().decode(PointEau.self, from: Data(json.utf8))
+        XCTAssertTrue(gelee.coupeeHiver)
+        XCTAssertEqual(StyleMarqueur.style(gelee, collectee: false).1, "snowflake")
+        XCTAssertEqual(StyleMarqueur.style(gelee, collectee: true).1, "checkmark")
+        XCTAssertTrue(Filtres(nuit: false).montre(gelee, collectee: false))
+        XCTAssertFalse(Filtres(nuit: false, gel: false).montre(gelee, collectee: false))
+        // Une autre panne reste masquée par défaut
+        XCTAssertFalse(Filtres(nuit: false).montre(point("panne", ok: false), collectee: false))
+        XCTAssertFalse(point("panne", ok: false).coupeeHiver)
+        let ici = CLLocation(latitude: 48.8600, longitude: 2.3400)
+        let r = Calcul.plusProche(de: ici, parmi: [gelee, point("rue", lat: 48.8610)]) { $0.estFontaine && $0.ok }
+        XCTAssertEqual(r?.0.id, "rue")
+        // Hiver : de novembre à mars
+        let cal = Calendar.current
+        XCTAssertTrue(Geo.estLHiver(cal.date(from: DateComponents(year: 2026, month: 12, day: 1))!))
+        XCTAssertFalse(Geo.estLHiver(cal.date(from: DateComponents(year: 2027, month: 6, day: 1))!))
+    }
+
+    /// Points des communes voisines : lieu affiché, recensement et défis « Autour de Paris ».
+    func testCommunesVoisines() {
+        var lev1 = point("lev1", ar: 0)
+        lev1.com = "Levallois-Perret"
+        var lev2 = point("lev2", ar: 0)
+        lev2.com = "Levallois-Perret"
+        var neu = point("neu", ar: 0)
+        neu.com = "Neuilly-sur-Seine"
+        let paris = point("p11", ar: 11)
+        XCTAssertEqual(lev1.lieu, "Levallois-Perret")
+        XCTAssertEqual(paris.lieu, "Paris 11e")
+        XCTAssertEqual(point("thiais", ar: 0).lieu, "Hors Paris")
+        let r = Recensement(points: [lev1, lev2, neu, paris])
+        XCTAssertEqual(r.parCommune, ["Levallois-Perret": 2, "Neuilly-sur-Seine": 1])
+        XCTAssertEqual(r.totalParis, 1)
+
+        let jeu = Jeu(dossier: dossierTemporaire())
+        jeu.collecter(lev1, image: image(), recensement: r)
+        XCTAssertEqual(jeu.visites["lev1"]?.lieu, "Levallois-Perret")
+        XCTAssertNotNil(jeu.defisReussis["periph"])
+        XCTAssertNil(jeu.defisReussis["com-levallois"])
+        jeu.collecter(lev2, image: image(), recensement: r)
+        XCTAssertNotNil(jeu.defisReussis["com-levallois"])
+        XCTAssertNil(jeu.defisReussis["boucle"])
+        jeu.collecter(neu, image: image(), recensement: r)
+        XCTAssertNotNil(jeu.defisReussis["boucle"])
+        XCTAssertNotNil(jeu.defisReussis["com-neuilly"])
+        // Les communes ne comptent pas pour « Tout Paris »
+        XCTAssertNil(jeu.defisReussis["toutparis"])
+        XCTAssertEqual(Jeu(dossier: jeu.dossier).visites["neu"]?.com, "Neuilly-sur-Seine")
+    }
+
+    /// Une partie enregistrée par la version 1.0 (visites sans commune) se relit sans perte.
+    func testSauvegardeVersion1() throws {
+        let dossier = dossierTemporaire()
+        try FileManager.default.createDirectory(at: dossier, withIntermediateDirectories: true)
+        let ancienne = #"{"visites":[{"id":"f9","date":"2026-11-19T10:00:00Z","type":"Fontaine Wallace","pts":20,"ar":4,"cat":"fontaine","lat":48.85,"lon":2.35,"photo":"f9.jpg"}],"defis":{"premiere":"2026-11-19T10:00:00Z"}}"#
+        try Data(ancienne.utf8).write(to: dossier.appendingPathComponent("jeu.json"))
+        let jeu = Jeu(dossier: dossier)
+        XCTAssertEqual(jeu.visites.count, 1)
+        XCTAssertEqual(jeu.visites["f9"]?.lieu, "Paris 4e")
+        XCTAssertEqual(jeu.total, 20 + 20)
+    }
+
+    /// Un point de Levallois collecté avec la version 1.0 (visite sans commune) compte pour les défis après la mise à jour.
+    func testCommuneRetrouvee() {
+        var lev = point("lev", ar: 0)
+        let r0 = Recensement(points: [lev])
+        let jeu = Jeu(dossier: dossierTemporaire())
+        jeu.collecter(lev, image: image(), recensement: r0)
+        XCTAssertNil(jeu.visites["lev"]?.com)
+        lev.com = "Levallois-Perret"
+        let r = Recensement(points: [lev])
+        jeu.completerCommunes(["lev": lev])
+        jeu.validerDefis(r)
+        XCTAssertEqual(jeu.visites["lev"]?.lieu, "Levallois-Perret")
+        XCTAssertNotNil(jeu.defisReussis["com-levallois"])
+        XCTAssertEqual(Jeu(dossier: jeu.dossier).visites["lev"]?.com, "Levallois-Perret")
     }
 
     func testNiveaux() {

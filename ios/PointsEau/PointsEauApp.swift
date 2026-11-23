@@ -32,6 +32,7 @@ struct PointsEauApp: App {
                         position.demarrer()
                         Task {
                             await donnees.rafraichir()
+                            jeu.completerCommunes(donnees.parId)
                             jeu.validerDefis(donnees.recensement)
                         }
                     case .background:

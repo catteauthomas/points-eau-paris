@@ -25,7 +25,7 @@ struct EcranCarte: View {
                 .ignoresSafeArea(edges: .top)
 
             VStack(spacing: 10) {
-                BarreFiltres(filtres: $filtres)
+                BarreFiltres(filtres: $filtres, hiver: donnees.nbCoupeesHiver > 0)
                 Spacer()
                 HStack {
                     Spacer()
@@ -99,7 +99,8 @@ struct EcranCarte: View {
                 BandeauRoute(point: dest, route: r, distance: l.distance(from: dest.position)) { arreterRoute() }
             } else if !Geo.estAParis(l) {
                 Carte {
-                    Label("Tu n'es pas à Paris : la carte montre les points d'eau parisiens.", systemImage: "info.circle")
+                    Label("Tu n'es pas à Paris : la carte montre les points d'eau de Paris et des communes voisines.",
+                          systemImage: "info.circle")
                         .font(.subheadline)
                 }
             } else if let (p, d) = donnees.plusProche(de: l) {
@@ -354,6 +355,8 @@ struct BandeauRoute: View {
 
 struct BarreFiltres: View {
     @Binding var filtres: Filtres
+    /// Des fontaines sont coupées pour l'hiver : on propose de les masquer.
+    var hiver = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -362,6 +365,9 @@ struct BarreFiltres: View {
                 Pastille(titre: "Pétillantes", symbole: "bubbles.and.sparkles.fill", couleur: .purple, actif: $filtres.petillantes)
                 Pastille(titre: "Ouvertes la nuit", symbole: "moon.stars.fill", couleur: .indigo, actif: $filtres.nuit)
                 Pastille(titre: "Collectées", symbole: "checkmark", couleur: Color(StyleMarqueur.or), actif: $filtres.collectees)
+                if hiver {
+                    Pastille(titre: "Coupées l'hiver", symbole: "snowflake", couleur: Color(StyleMarqueur.glace), actif: $filtres.gel)
+                }
                 Pastille(titre: "Hors service", symbole: "xmark", couleur: .gray, actif: $filtres.horsService)
             }
             .padding(.horizontal, 2)

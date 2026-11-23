@@ -21,7 +21,11 @@ struct PointEau: Codable, Identifiable, Hashable {
     var horaires: String?
     var saison: Bool?
     var fermeNuit: Bool?
+    /// Coupée pour l'hiver par Eau de Paris (risque de gel).
+    var gel: Bool?
     var ar: Int?
+    /// Commune voisine (Levallois-Perret, Neuilly-sur-Seine…) pour un point hors Paris.
+    var com: String?
     var pts: Int?
 
     var categorie: Categorie { Categorie(rawValue: cat) ?? .fontaine }
@@ -32,6 +36,12 @@ struct PointEau: Codable, Identifiable, Hashable {
     var points: Int { pts ?? 10 }
     var arrondissement: Int { ar ?? 0 }
     var titre: String { nom ?? type }
+    /// « Paris 11e », « Levallois-Perret » ou « Hors Paris ».
+    var lieu: String { Geo.lieu(ar: arrondissement, com: com) }
+    /// Ne coule pas en ce moment : coupée pour l'hiver à cause du gel.
+    var coupeeHiver: Bool { gel == true && !ok }
+    /// Seule Eau de Paris publie ses coupures d'hiver : pour les autres points, on ne sait pas s'ils coulent quand il gèle.
+    var hiverConnu: Bool { src == "fontaine" }
     /// Accessible à toute heure (pas dans un parc, un square ou un cimetière, pas d'horaires limités).
     var ouvertLaNuit: Bool { fermeNuit != true }
     var rarete: Rarete { Rarete(points: points) }
@@ -103,6 +113,9 @@ struct Visite: Codable, Identifiable, Hashable {
     let lat: Double
     let lon: Double
     var photo: String     // nom du fichier dans le dossier des photos
+    var com: String? = nil  // commune voisine (absent des sauvegardes de la version 1.0)
+
+    var lieu: String { Geo.lieu(ar: ar, com: com) }
 }
 
 /// Nombre de fontaines par type et par arrondissement, pour les objectifs du jeu.
@@ -111,6 +124,7 @@ struct Recensement {
     var totalParis = 0
     var parType: [String: Int] = [:]
     var parArrondissement: [Int: Int] = [:]
+    var parCommune: [String: Int] = [:]
     var petillantes = 0
 
     init() {}
@@ -123,6 +137,8 @@ struct Recensement {
             if (1...20).contains(p.arrondissement) {
                 totalParis += 1
                 parArrondissement[p.arrondissement, default: 0] += 1
+            } else if let c = p.com {
+                parCommune[c, default: 0] += 1
             }
         }
     }
@@ -133,6 +149,30 @@ enum Geo {
     static let paris = CLLocation(latitude: 48.8566, longitude: 2.3522)
 
     static func estAParis(_ l: CLLocation) -> Bool { l.distance(from: paris) < 20_000 }
+
+    /// Communes entre Paris et la Seine dont les points d'eau sont sur la carte (même liste que scraper/scrape.py).
+    static let voisines = ["Boulogne-Billancourt", "Neuilly-sur-Seine", "Levallois-Perret", "Clichy", "Saint-Ouen-sur-Seine"]
+
+    /// Nom court d'une commune voisine, pour les défis et la grille (« Levallois », « Saint-Ouen »).
+    static func court(_ commune: String) -> String {
+        switch commune {
+        case "Boulogne-Billancourt": return "Boulogne"
+        case "Neuilly-sur-Seine": return "Neuilly"
+        case "Levallois-Perret": return "Levallois"
+        case "Saint-Ouen-sur-Seine": return "Saint-Ouen"
+        default: return commune
+        }
+    }
+
+    static func lieu(ar: Int, com: String?) -> String {
+        if (1...20).contains(ar) { return "Paris \(arrondissement(ar))" }
+        return com ?? "Hors Paris"
+    }
+
+    /// De novembre à mars, les fontaines peuvent être coupées à cause du gel.
+    static func estLHiver(_ date: Date = Date()) -> Bool {
+        [11, 12, 1, 2, 3].contains(Calendar.current.component(.month, from: date))
+    }
 
     /// Entre 21 h et 7 h, les parcs, squares et cimetières sont fermés.
     static func estLaNuit(_ date: Date = Date()) -> Bool {

@@ -71,7 +71,7 @@ struct EcranDefis: View {
         var part: Double { Double(fait) / Double(max(objectif, 1)) }
     }
 
-    /// Défis du groupe : réussis en bas ; pour les arrondissements, les plus avancés en premier.
+    /// Défis du groupe : réussis en bas ; pour les arrondissements et les communes, les plus avancés en premier.
     private func lignes(_ g: Defi.Groupe, _ c: Contexte) -> [Ligne] {
         let toutes = Defi.tous.filter { $0.groupe == g }
             .map { d -> Ligne in
@@ -81,7 +81,7 @@ struct EcranDefis: View {
             .filter { $0.objectif > 0 }
         let aFaire = toutes.filter { jeu.defisReussis[$0.id] == nil }
         let faits = toutes.filter { jeu.defisReussis[$0.id] != nil }
-        let tries = g == .arrondissements ? aFaire.sorted { $0.part > $1.part } : aFaire
+        let tries = g == .arrondissements || g == .voisines ? aFaire.sorted { $0.part > $1.part } : aFaire
         return tries + faits
     }
 }
@@ -204,6 +204,29 @@ struct EcranCollection: View {
                     }
                 }
             }
+            let communes = Geo.voisines.filter { (donnees.recensement.parCommune[$0] ?? 0) > 0 }
+            if !communes.isEmpty {
+                Text("Autour de Paris").font(.title3.bold()).padding(.top, 6)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) {
+                    ForEach(communes, id: \.self) { commune in
+                        let fait = c.parCommune[commune] ?? 0
+                        let total = max(donnees.recensement.parCommune[commune] ?? 0, 1)
+                        let part = min(Double(fait) / Double(total), 1)
+                        VStack(spacing: 3) {
+                            Text(Geo.court(commune)).font(.caption.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
+                            Text("\(fait)/\(total)").font(.caption2.monospacedDigit())
+                        }
+                        .padding(.horizontal, 2)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .foregroundStyle(part >= 1 ? Color.white : Color.primary)
+                        .background {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(part >= 1 ? Color(StyleMarqueur.or) : Color.accentColor.opacity(0.08 + 0.5 * part))
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
         }
     }
 
@@ -277,7 +300,7 @@ struct DetailVisite: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     Text(visite.type).font(.title2.bold())
-                    Text("\(visite.ar == 0 ? "Hors Paris" : "Paris " + Geo.arrondissement(visite.ar)) · \(Rarete(points: visite.pts).nom) · +\(visite.pts) points")
+                    Text("\(visite.lieu) · \(Rarete(points: visite.pts).nom) · +\(visite.pts) points")
                         .foregroundStyle(.secondary)
                     Text("Collectée le \(visite.date.formatted(date: .complete, time: .shortened))")
                         .font(.subheadline)

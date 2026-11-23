@@ -50,6 +50,7 @@ struct Contexte {
     let recensement: Recensement
     let parType: [String: Int]
     let parArrondissement: [Int: Int]
+    let parCommune: [String: Int]
     let nbParis: Int
     let petillantes: Int
     let maxParJour: Int
@@ -60,6 +61,7 @@ struct Contexte {
         self.recensement = recensement
         var types: [String: Int] = [:]
         var ars: [Int: Int] = [:]
+        var communes: [String: Int] = [:]
         var jours: [Date: Int] = [:]
         var paris = 0
         var bulles = 0
@@ -68,12 +70,15 @@ struct Contexte {
             if (1...20).contains(v.ar) {
                 ars[v.ar, default: 0] += 1
                 paris += 1
+            } else if let c = v.com {
+                communes[c, default: 0] += 1
             }
             if v.cat == Categorie.petillante.rawValue { bulles += 1 }
             jours[calendrier.startOfDay(for: v.date), default: 0] += 1
         }
         parType = types
         parArrondissement = ars
+        parCommune = communes
         nbParis = paris
         petillantes = bulles
         maxParJour = jours.values.max() ?? 0
@@ -106,6 +111,7 @@ struct Defi: Identifiable {
         case collection = "Collection"
         case rares = "Fontaines rares"
         case arrondissements = "Arrondissements"
+        case voisines = "Autour de Paris"
         case rythme = "Rythme"
     }
 
@@ -205,6 +211,24 @@ struct Defi: Identifiable {
             Defi(id: "ete", groupe: .rythme, titre: "Canicule", detail: "Collecte une fontaine en juillet ou en août.",
                  symbole: "sun.max.fill", bonus: 50) { c in (c.mois([7, 8]), 1) },
         ]
+        d.append(Defi(id: "periph", groupe: .voisines, titre: "De l'autre côté du périph'",
+                      detail: "Collecte une fontaine à Boulogne, Neuilly, Levallois, Clichy ou Saint-Ouen.",
+                      symbole: "arrow.up.forward.circle.fill", bonus: 50) { c in
+            (c.parCommune.isEmpty ? 0 : 1, c.recensement.parCommune.isEmpty ? 0 : 1)
+        })
+        d.append(Defi(id: "boucle", groupe: .voisines, titre: "Dans la boucle de la Seine",
+                      detail: "Collecte au moins une fontaine dans chacune des communes voisines, entre Paris et la Seine.",
+                      symbole: "water.waves", bonus: 300) { c in
+            (c.parCommune.count, c.recensement.parCommune.count)
+        })
+        for commune in Geo.voisines {
+            let court = Geo.court(commune)
+            d.append(Defi(id: "com-\(court.lowercased())", groupe: .voisines, titre: "\(court) complet",
+                          detail: "Collecte tous les points d'eau de \(commune).",
+                          symbole: "building.2.fill", bonus: 150) { c in
+                (c.parCommune[commune] ?? 0, c.recensement.parCommune[commune] ?? 0)
+            })
+        }
         for n in 1...20 {
             let nom = Geo.arrondissement(n)
             d.append(Defi(id: "ar\(n)", groupe: .arrondissements, titre: "\(nom) arrondissement complet",
@@ -280,7 +304,7 @@ final class Jeu: ObservableObject {
             try? data.write(to: dossierPhotos.appendingPathComponent(nom), options: .atomic)
         }
         let v = Visite(id: p.id, date: Date(), type: p.type, pts: p.points, ar: p.arrondissement, cat: p.cat,
-                       lat: p.lat, lon: p.lon, photo: nom)
+                       lat: p.lat, lon: p.lon, photo: nom, com: p.com)
         visites[p.id] = v
         let nouveaux = validerDefis(recensement)
         sauver()
@@ -301,6 +325,19 @@ final class Jeu: ObservableObject {
             }
         }
         return nouveaux
+    }
+
+    /// Visites enregistrées par la version 1.0 (sans commune) : retrouve la commune du point d'eau, pour les défis
+    /// « Autour de Paris ».
+    func completerCommunes(_ parId: [String: PointEau]) {
+        var change = false
+        for (id, v) in visites where v.com == nil && v.ar == 0 {
+            if let c = parId[id]?.com {
+                visites[id]?.com = c
+                change = true
+            }
+        }
+        if change { sauver() }
     }
 
     func photo(_ v: Visite) -> UIImage? {

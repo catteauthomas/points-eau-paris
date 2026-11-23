@@ -174,6 +174,8 @@ if not version:
                      {"app": rel("apps", APP)})
     print(f"Version {META['version']} créée")
 VID = version["id"]
+# Toute première version de l'appli : Apple refuse le texte « Nouveautés »
+PREMIERE = all(v["id"] == VID for v in versions)
 infos = get(f"/v1/apps/{APP}/appInfos")["data"]
 info = next((i for i in infos if state(i) in EDITABLE), infos[0])
 info_loc = localization(get(f"/v1/appInfos/{info['id']}/appInfoLocalizations")["data"])
@@ -235,6 +237,8 @@ def texts():
              "promotionalText": META["promotionalText"]}
     if SUPPORT_URL:
         attrs["supportUrl"] = SUPPORT_URL
+    if META.get("whatsNew") and not PREMIERE:
+        attrs["whatsNew"] = META["whatsNew"]
     patch("appStoreVersionLocalizations", ver_loc["id"], attrs)
     if not SUPPORT_URL:
         return "textes remplis, lien d'assistance non fourni"
@@ -422,7 +426,7 @@ step("Nom, sous-titre et lien de confidentialité", app_info)
 step("Classification par âge (4+)", age_rating)
 step("Catégories (Navigation, Voyages)", categories)
 step("Droits sur le contenu", content_rights)
-step("Description, mots-clés, texte promo, lien d'assistance", texts)
+step("Description, nouveautés, mots-clés, texte promo, lien d'assistance", texts)
 step("Copyright", copyright_)
 step("Notes et coordonnées pour la vérification", review_notes)
 step("Prix : gratuite", price_free)

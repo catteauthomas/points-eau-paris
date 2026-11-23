@@ -9,12 +9,18 @@ struct Filtres: Equatable {
     /// Seulement les points accessibles à toute heure (activé tout seul la nuit).
     var nuit = Geo.estLaNuit()
     var horsService = false
+    /// Fontaines coupées pour l'hiver (gel) : affichées avec un flocon, pour savoir qu'il ne faut pas y compter.
+    var gel = true
     var collectees = true
 
     func montre(_ p: PointEau, collectee: Bool) -> Bool {
         if collectee && !collectees { return false }
         if nuit && !p.ouvertLaNuit { return false }
-        if !p.ok && !horsService && !collectee { return false }
+        if p.coupeeHiver && !collectee {
+            if !gel { return false }
+        } else if !p.ok && !horsService && !collectee {
+            return false
+        }
         switch p.categorie {
         case .fontaine: return fontaines
         case .petillante: return petillantes
@@ -38,9 +44,12 @@ struct Commande: Equatable {
 
 enum StyleMarqueur {
     static let or = UIColor(red: 0.96, green: 0.72, blue: 0.10, alpha: 1)
+    /// Bleu glacier, un peu éteint : la fontaine existe mais ne coule pas cet hiver.
+    static let glace = UIColor(red: 0.47, green: 0.66, blue: 0.82, alpha: 1)
 
     static func style(_ p: PointEau, collectee: Bool) -> (UIColor, String) {
         if collectee { return (or, "checkmark") }
+        if p.coupeeHiver { return (glace, "snowflake") }
         if !p.ok { return (.systemGray, "xmark") }
         switch p.categorie {
         case .commerce: return (.systemOrange, "cup.and.saucer.fill")
@@ -188,6 +197,8 @@ struct CarteView: UIViewRepresentable {
                 let membres = groupe.memberAnnotations.compactMap { $0 as? AnnotationEau }
                 if !membres.isEmpty && membres.allSatisfy({ $0.collectee }) {
                     m.markerTintColor = StyleMarqueur.or
+                } else if !membres.isEmpty && membres.allSatisfy({ $0.point.coupeeHiver }) {
+                    m.markerTintColor = StyleMarqueur.glace
                 } else if membres.first?.point.categorie == .commerce {
                     m.markerTintColor = .systemOrange
                 } else {
@@ -212,6 +223,10 @@ struct CarteView: UIViewRepresentable {
             m.canShowCallout = false
             if a.point.categorie == .commerce {
                 m.clusteringIdentifier = "commerce"
+                m.displayPriority = .defaultLow
+            } else if a.point.coupeeHiver && !a.collectee {
+                // Regroupées entre elles : un groupe de fontaines en service ne compte pas celles qui sont gelées
+                m.clusteringIdentifier = "gel"
                 m.displayPriority = .defaultLow
             } else {
                 m.clusteringIdentifier = a.collectee ? "collectee" : "eau"

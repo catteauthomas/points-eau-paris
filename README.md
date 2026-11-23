@@ -6,9 +6,12 @@ Appli iPhone (SwiftUI + MapKit) qui affiche, avec ta position en direct, tous le
 
 | Source | Contenu |
 |---|---|
-| Open Data Paris `fontaines-a-boire` (Eau de Paris, ODbL) | ~1 320 fontaines, type, état du jour (en service / hors service, motif, retour prévu) |
-| OpenStreetMap / Overpass (ODbL) | points `amenity=drinking_water` dans Paris, sans ceux à moins de 25 m d'une fontaine officielle |
+| Open Data Paris `fontaines-a-boire` (Eau de Paris, ODbL) | ~1 320 fontaines, type, état (moins frais que la carte ci-dessous) |
+| Carte Eau de Paris (fontaine.eaudeparis.fr, WFS `edp:fontaines`) | état du jour de chaque fontaine, mis à jour chaque matin, dont les coupures d'hiver (`gel`) |
+| Open Data GPSO `bornes-fontaines` (Licence Ouverte) | bornes-fontaines de Boulogne-Billancourt, avec leur état |
+| OpenStreetMap / Overpass (ODbL) | points `amenity=drinking_water` dans Paris et les communes voisines, sans ceux à moins de 25 m d'une fontaine officielle |
 | Open Data Paris `arrondissements` | contours, pour ranger les points OSM par arrondissement |
+| API Géo (geo.api.gouv.fr) | contours de Boulogne-Billancourt, Neuilly-sur-Seine, Levallois-Perret, Clichy, Saint-Ouen-sur-Seine (champ `com`) |
 
 Les commerces partenaires ne sont pas repris : ils sont fermés la nuit et l'appli doit marcher à 3 h du matin. Pour la même raison, le champ `fermeNuit` marque les fontaines situées dans un square, un parc, un jardin ou un cimetière, et les points OSM avec des horaires limités. De 21 h à 7 h, l'appli les masque et ne s'en sert pas pour la fontaine la plus proche.
 

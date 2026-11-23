@@ -11,6 +11,8 @@ final class Donnees: ObservableObject {
     @Published private(set) var recensement = Recensement()
     @Published private(set) var genere = ""
     @Published private(set) var majFontaines: String?
+    /// Fontaines coupées pour l'hiver en ce moment (0 hors saison : la pastille « Coupées l'hiver » disparaît).
+    @Published private(set) var nbCoupeesHiver = 0
     private(set) var parId: [String: PointEau] = [:]
 
     private let cache: URL
@@ -52,11 +54,12 @@ final class Donnees: ObservableObject {
         points = f.points.filter { $0.categorie != .commerce }
         parId = Dictionary(points.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         recensement = Recensement(points: points)
+        nbCoupeesHiver = points.filter(\.coupeeHiver).count
         genere = f.genere
         majFontaines = f.sources["fontaines"]?.maj ?? f.sources["fontaines"]?.date
     }
 
-    /// « 16/11 » : date des données Eau de Paris.
+    /// « 16/11/2026 » : date de l'état des fontaines Eau de Paris.
     var majTexte: String {
         guard let m = majFontaines, m.count >= 10 else { return "" }
         let p = m.prefix(10).split(separator: "-")
